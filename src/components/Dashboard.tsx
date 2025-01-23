@@ -53,11 +53,16 @@ const Dashboard = () => {
         setIsLoading(true);
         setError(null);
 
-        console.log('Fetching CSV files...');
+        console.log('Starting to fetch CSV files...');
         const [adasResponse, adsResponse] = await Promise.all([
           fetch('/SGO202101_Incident_Reports_ADAS.csv'),
           fetch('/SGO202101_Incident_Reports_ADS.csv')
         ]);
+
+        console.log('CSV Response status:', {
+          adas: adasResponse.status,
+          ads: adsResponse.status
+        });
 
         if (!adasResponse.ok || !adsResponse.ok) {
           throw new Error('Failed to fetch CSV files');
@@ -66,7 +71,11 @@ const Dashboard = () => {
         const adasText = await adasResponse.text();
         const adsText = await adsResponse.text();
         
-        console.log('Parsing CSV data...');
+        console.log('CSV data length:', {
+          adas: adasText.length,
+          ads: adsText.length
+        });
+
         const adasData = Papa.parse(adasText, { 
           header: true, 
           skipEmptyLines: true 
@@ -95,7 +104,8 @@ const Dashboard = () => {
         const monthlyDataArray = Object.values(monthlyAccidents)
           .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
-        console.log('Processing injury data...');
+        console.log('Monthly data processed:', monthlyDataArray);
+
         const adasInjuriesData = Object.entries(
           adasData.reduce((acc, row) => {
             const severity = row['Highest Injury Severity Alleged'];
@@ -122,9 +132,7 @@ const Dashboard = () => {
         setTotalADAS(adasInjuriesData.reduce((sum, item) => sum + item.value, 0));
         setTotalADS(adsInjuriesData.reduce((sum, item) => sum + item.value, 0));
 
-        console.log('Data loaded successfully');
         setIsLoading(false);
-
       } catch (error) {
         console.error('Error loading data:', error);
         setError(error.message);
@@ -135,12 +143,17 @@ const Dashboard = () => {
     loadData();
   }, []);
 
+  // Debug logging for monthlyData
+  useEffect(() => {
+    console.log('Monthly Data for Bar Chart:', monthlyData);
+  }, [monthlyData]);
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const dataPoint = monthlyData.find(item => item.axisDate === label);
       return (
         <div className="bg-white p-4 border rounded shadow">
-          <p className="font-semibold">{dataPoint.date}</p>
+          <p className="font-semibold">{dataPoint?.date}</p>
           <p>Crashes: {payload[0].value}</p>
         </div>
       );
@@ -169,38 +182,40 @@ const Dashboard = () => {
       <h1 className="text-2xl font-bold mb-6">Crash Analysis Dashboard</h1>
       
       {/* Monthly Crashes Bar Chart */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Monthly Crashes (2021-2024)</h2>
-        <div className="h-96">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={monthlyData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-              barSize={20}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="axisDate"
-                angle={-45}
-                textAnchor="end"
-                height={100}
-                tick={{fontSize: 12}}
-                padding={{ left: 10, right: 10 }}
-                interval={3}
-              />
-              <YAxis />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar 
-                dataKey="count" 
-                fill="#8884d8" 
-                name="Number of Crashes"
-                minPointSize={5}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+      {monthlyData && monthlyData.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Monthly Crashes (2021-2024)</h2>
+          <div className="h-96 w-full">
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart 
+                data={monthlyData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                barSize={20}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="axisDate"
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  tick={{fontSize: 12}}
+                  padding={{ left: 10, right: 10 }}
+                  interval={3}
+                />
+                <YAxis />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Bar 
+                  dataKey="count" 
+                  fill="#8884d8" 
+                  name="Number of Crashes"
+                  minPointSize={5}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Injury Severity Pie Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
